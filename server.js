@@ -17,8 +17,10 @@ io.on('connection', (socket) => {
     x: Math.floor(Math.random() * 700) + 50,
     y: Math.floor(Math.random() * 500) + 50,
     playerId: socket.id,
-    team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue'
+    team: ((numPlayers % 2)  == 0) ? 'red' : 'blue'
   };
+  numPlayers++;
+
   // Send the players object to the new player
   socket.emit('currentPlayers', players);
   // Send the star object to the new player
@@ -34,6 +36,7 @@ io.on('connection', (socket) => {
 
     // Remove this player from our players object
     delete players[socket.id];
+    numPlayers--;
     // Emit a message to all players to remove this player
     io.emit('disconnect', socket.id);
   });
@@ -44,7 +47,12 @@ io.on('connection', (socket) => {
     players[socket.id].y = movementData.y;
     players[socket.id].rotation = movementData.rotation;
     // Emit a message to all players about the player that moved
-    socket.broadcast.emit('playerMoved', players[socket.id]);
+    io.emit('playerMoved', players[socket.id]);
+  });
+
+  // When an obstacle moves, update obstacle data
+  socket.on('obstacleMovement', (movementData) => {
+    io.emit('obstacleMoved', movementData);
   });
 
   socket.on('starCollected', () => {
@@ -60,6 +68,7 @@ io.on('connection', (socket) => {
   });
 });
 
+let numPlayers = 0;
 let players = {};
 let star = {
   x: Math.floor(Math.random() * 700) + 50,
