@@ -17,7 +17,7 @@ io.on('connection', (socket) => {
     x: Math.floor(Math.random() * 700) + 50,
     y: Math.floor(Math.random() * 500) + 50,
     playerId: socket.id,
-    team: ((numPlayers % 2)  == 0) ? 'red' : 'blue'
+    team: ((numPlayers % 2) == 0) ? 'red' : 'blue'
   };
   numPlayers++;
 
@@ -27,6 +27,11 @@ io.on('connection', (socket) => {
   socket.emit('starLocation', star);
   // Send the current scores
   socket.emit('scoreUpdate', scores);
+  // Start game time when more than 2 people
+  if (numPlayers >= 2 && (gameTimer === null)) {
+    gameTimer = startGameTime(socket, gameTime);
+  }
+
 
   // Update all other players of the new player
   socket.broadcast.emit('newPlayer', players[socket.id]);
@@ -57,13 +62,29 @@ io.on('connection', (socket) => {
 
   socket.on('starCollected', () => {
     if (players[socket.id].team === 'red') {
-      scores.red += 10;
+      scores.red += 100;
     } else {
-      scores.blue += 10;
+      scores.blue += 100;
     }
+    // Randomize a new star location
     star.x = Math.floor(Math.random() * 700) + 50;
     star.y = Math.floor(Math.random() * 500) + 50;
     io.emit('starLocation', star);
+    io.emit('scoreUpdate', scores);
+  });
+
+  socket.on('obstacleHit', () => {
+    let teamHit = players[socket.id].team;
+    // Avoid over-triggering deduction of points
+    if (!recentlyHit[teamHit]) {
+      // Decrease 5 points for team that hit the obstacle
+      scores[teamHit] -= 50;
+      recentlyHit[teamHit] = true;
+    }
+    // Cooldown after being hit
+    setTimeout((recentlyHit, teamHit) => {
+      recentlyHit[teamHit] = false
+    }, 2000, recentlyHit, teamHit);
     io.emit('scoreUpdate', scores);
   });
 });
@@ -75,9 +96,42 @@ let star = {
   y: Math.floor(Math.random() * 500) + 50
 };
 let scores = {
-  blue: 0,
-  red: 0
+  blue: 1000,
+  red: 1000
 };
+let recentlyHit = {
+  blue: false,
+  red: false
+};
+let gameTime = 60;
+let gameTimer = null;
+
+function startGameTime(socket, gameTime) {
+  return setInterval(() => {
+    if (gameTime > 0) {
+      // Broadcast game time every second
+      socket.emit('timeUpdate', gameTime);
+      socket.broadcast.emit('timeUpdate', gameTime);
+      gameTime--;
+    } else {
+      // Broadcast end game signal
+      socket.emit('gameEnd', scores);
+      socket.broadcast.emit('gameEnd', scores);
+      clearInterval(gameTimer);
+      setTimeout(restartGame, 5000);
+    }
+  }, 1000);
+}
+
+function restartGame() {
+  console.log('Restarting game');
+  scores = {
+    blue: 1000,
+    red: 1000
+  };
+  gameTime = 60;
+  gameTimer = null;
+}
 
 server.listen(8081, () => {
   console.log('Listening on ' + server.address().port);

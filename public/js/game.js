@@ -37,10 +37,26 @@ function create() {
     this.add.image(400, 300, 'background');
 
     this.obstacle = this.physics.add.sprite(400, 300, 'obstacle');
-    this.obstacle.body.velocity.setTo(200, 200);
+    // Set obstacle phsyics
+    this.obstacle.setVelocity(100, 100);
+    this.obstacle.setMaxVelocity(300);
+    this.obstacle.setAcceleration(this.obstacle.body.velocity.x, this.obstacle.body.velocity.y);
     this.obstacle.setBounce(1).setCollideWorldBounds(true);
 
+    this.blueScoreText = this.add.text(16, 16, '', { 
+        fontSize: '24px', fontFamily: '"Roboto Condensed"', fill: '#6666FF' 
+    });
+    this.redScoreText = this.add.text(680, 16, '', { 
+        fontSize: '24px', fontFamily: '"Roboto Condensed"', fill: '#FF6666' 
+    });
+
+    this.gameTime = this.add.text(375, 10, '', { 
+        fontSize: '30px', fontFamily: '"Roboto Condensed"', fill: '#FFFFFF' 
+    });
+
+
     this.socket.on('currentPlayers', (players) => {
+        // Iterate through all player data and add players to the game
         Object.keys(players).forEach((id) => {
             if (players[id].playerId === self.socket.id) {
                 addPlayer(self, players[id]);
@@ -62,12 +78,23 @@ function create() {
         });
     });
 
-    this.blueScoreText = this.add.text(16, 16, '', { fontSize: '24px', fontFamily: '"Roboto Condensed"', fill: '#6666FF' });
-    this.redScoreText = this.add.text(584, 16, '', { fontSize: '24px', fontFamily: '"Roboto Condensed"', fill: '#FF6666' });
-
     this.socket.on('scoreUpdate', (scores) => {
         self.blueScoreText.setText('Blue: ' + scores.blue);
         self.redScoreText.setText('Red: ' + scores.red);
+    });
+
+    this.socket.on('timeUpdate', (time) => {
+        self.gameTime.setText(time);
+    });
+
+    this.socket.on('gameEnd', (scores) => {
+        if (scores.blue > scores.red) {
+            self.gameTime.setText('Blue Wins');
+        } else if (scores.red > scores.blue) {
+            self.gameTime.setText('Red Wins');
+        } else {
+            self.gameTime.setText('Draw');
+        }
     });
 
     this.socket.on('starLocation', (starLocation) => {
@@ -91,7 +118,7 @@ function create() {
 
     // Update the location of the obstacle
     this.socket.on('obstacleMoved', (movementData) => {
-        self.obstacle.setRotation(movementData.rotation);
+        self.obstacle.setAcceleration(self.obstacle.body.velocity.x, self.obstacle.body.velocity.y);
         self.obstacle.setPosition(movementData.x, movementData.y);
     });
 }
@@ -116,7 +143,9 @@ function update() {
         checkMovement(this, this.ship, 'playerMovement');
         checkMovement(this, this.obstacle, 'obstacleMovement');
 
-        this.physics.world.addCollider(this.ship, this.obstacle);
+        this.physics.world.addCollider(this.ship, this.obstacle, () => {
+            this.socket.emit('obstacleHit');
+        });
     }
 }
 
@@ -147,7 +176,7 @@ function addPlayer(self, playerInfo) {
     self.ship.setDrag(100);
     self.ship.setAngularDrag(100);
     self.ship.setMaxVelocity(200);
-    self.ship.body.setBounce(1).setCollideWorldBounds(true);
+    self.ship.body.setBounce(2).setCollideWorldBounds(true);
 }
 
 function addOtherPlayers(self, playerInfo) {
