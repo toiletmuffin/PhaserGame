@@ -2,6 +2,7 @@ const express = require('express');
 const app = express();
 const server = require('http').Server(app);
 const io = require('socket.io').listen(server);
+const PORT = process.env.PORT || 8081;
 
 app.use(express.static(__dirname + '/public'));
 
@@ -133,6 +134,6 @@ function restartGame() {
   gameTimer = null;
 }
 
-server.listen(8081, () => {
+server.listen(PORT, () => {
   console.log('Listening on ' + server.address().port);
 });
