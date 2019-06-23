@@ -43,6 +43,9 @@ io.on('connection', (socket) => {
     // Remove this player from our players object
     delete players[socket.id];
     numPlayers--;
+    if (numPlayers <= 0) {
+      restartGame();
+    }
     // Emit a message to all players to remove this player
     io.emit('disconnect', socket.id);
   });
